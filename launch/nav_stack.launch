@@ -1,0 +1,9 @@
+<launch>
+  <arg name="map_file" default="$(find ros_navi)/map_gazebo.yaml"/>
+  <!--TurtleBot3 Rviz-->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
+    <arg name="map_file" value="$(arg map_file)"/>
+  </include>
+  <!--TurtleBot3 Gazebo-->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch"/>
+</launch>
