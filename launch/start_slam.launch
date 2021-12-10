@@ -1,0 +1,10 @@
+<launch>
+  <!--TurtleBot3 Rviz-->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch"/>
+  <!--TurtleBot3 Gazebo-->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch"/>
+  <!--Slam-toolbox-->
+  <include file="$(find slam_toolbox)/online_async.launch"/> 
+  <!--Teletop-->
+  <include file="$(find turtlebot3_teleop)/launch/turtlebot3_teleop_key.launch"/>
+</launch>
