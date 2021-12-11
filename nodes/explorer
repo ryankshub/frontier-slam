@@ -10,7 +10,7 @@
 import actionlib
 from actionlib_msgs.msg import GoalStatus
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, OccupancyGrid
 import rospy
 import numpy as np
 
@@ -19,7 +19,13 @@ class Explorer:
     """
     ROS Node responsible for navigating the robot inorder to explore a home
 
-    SUBSCRIBER
+    SUBSCRIBERS
+        odom nav_msgs/Odometry-
+            The odometry of the robot, used to grab it's current
+            location
+        
+        map nav_msgs/OccupancyGrid - 
+            The occupancy grid of the map, used for exploration
 
     ACTION CLIENT:
         navi MoveBaseAction -
@@ -31,11 +37,13 @@ class Explorer:
         """
         rospy.init_node('explorer')
         rospy.Subscriber('/odom', Odometry, self._handle_odom)
+        rospy.Subscriber('/map', OccupancyGrid, self._handle_map)
         self._navi_client= actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self._navi_client.wait_for_server()
         self.goal_set = False
         self.x = None #We start with no clue where the robot is
         self.y = None #We start with no clue where the robot is
+        self.grid = None
 
         # Set up run rate and main function
         self._RATE = 1 # in Hz
@@ -51,6 +59,25 @@ class Explorer:
         """
         self.x = data.pose.pose.position.x
         self.y = data.pose.pose.position.y
+
+    def make_grid(self, rows, cols, datalist):
+        """
+        Convert single array to grid of shape
+        (rows, cols) 
+        """
+        data_arr = np.array(datalist)
+        data_mat = np.reshape(data_arr, (rows, cols))
+        return data_mat
+
+    def _handle_map(self, data):
+        """
+        Handles data from the Occupancy Grid
+        """
+        self.previous_grid = self.grid
+        self.grid = self.make_grid(data.info.height, 
+                                   data.info.width,
+                                   data.data)
+        
 
     def _complete(self, status, result):
         """
@@ -84,7 +111,7 @@ class Explorer:
         """
         Main execution to calculate new point is current point as been reached
         """
-        if not self.goal_set:
+        if not self.goal_set or self.x is None or self.y is None:
             # Get current location
             new_goal = self.random_walk()
             self.goal_set = True
