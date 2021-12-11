@@ -53,19 +53,20 @@ To run the robot with frontier exploration, use the command file `roslaunch ros_
 
 ### Demo ###
 
-![Frontier Demo](media/frontier.gif)
+![frontier](https://user-images.githubusercontent.com/90436131/145666707-ca0b11ad-3b6e-4697-b2d2-2ad65b4c9a12.gif)
 
 To run only the gazebo and rviz to use the 2D Nav Goal to guide the robot, use the command `roslaunch ros_navi slam_stack.launch`.
 
 ### Demo ###
 
-![Slam Stack](media/slam_stack.gif)
+![slam_stack](https://user-images.githubusercontent.com/90436131/145666699-4d8683bb-274b-4622-baee-610f6386ecc9.gif)
+
 
 To run only the navigation stack and use the 2D Nav Goal to gudie the robot, use the command `roslaunch ros_navi nav_stack.launch`
 
 ### Demo ###
 
-![Nav_Stack Demo](media/nav_stack.gif)
+![nav_stack](https://user-images.githubusercontent.com/90436131/145666721-6f2f3de8-6649-4b74-aecf-f8527850234a.gif)
 
 
 
