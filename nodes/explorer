@@ -13,6 +13,7 @@ from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 from nav_msgs.msg import Odometry, OccupancyGrid
 import rospy
 import numpy as np
+import cv2 as cv
 
 
 class Explorer:
@@ -36,20 +37,25 @@ class Explorer:
         Constructor for ROS Node
         """
         rospy.init_node('explorer')
-        rospy.Subscriber('/odom', Odometry, self._handle_odom)
-        rospy.Subscriber('/map', OccupancyGrid, self._handle_map)
         self._navi_client= actionlib.SimpleActionClient("move_base", MoveBaseAction)
         self._navi_client.wait_for_server()
         self.goal_set = False
         self.x = None #We start with no clue where the robot is
         self.y = None #We start with no clue where the robot is
+        self.past_x = None
+        self.past_y = None
+        self.stuck_count = 0
+        self.STUCK_LIMIT = 5
+        self.threshold = 0.001
         self.grid = None
-
         # Set up run rate and main function
-        self._RATE = 1 # in Hz
+        self._RATE = 15 # in Hz
         self._time_delta = 1./self._RATE
+        rospy.Subscriber('/odom', Odometry, self._handle_odom)
+        rospy.Subscriber('/map', OccupancyGrid, self._handle_map)
         rospy.Timer(rospy.Duration(self._time_delta), self.main_loop)
         rospy.spin()
+
 
     def _handle_odom(self, data):
         """
@@ -57,8 +63,11 @@ class Explorer:
         to update the current idea of the robot's 
         position
         """
+        self.past_x = self.x
+        self.past_y = self.y
         self.x = data.pose.pose.position.x
         self.y = data.pose.pose.position.y
+
 
     def make_grid(self, rows, cols, datalist):
         """
@@ -69,25 +78,16 @@ class Explorer:
         data_mat = np.reshape(data_arr, (rows, cols))
         return data_mat
 
+
     def _handle_map(self, data):
         """
         Handles data from the Occupancy Grid
         """
-        self.previous_grid = self.grid
         self.grid = self.make_grid(data.info.height, 
                                    data.info.width,
                                    data.data)
-        
-
-    def _complete(self, status, result):
-        """
-        Called when goal is finished, 
-        Check if robot could successfully make it 
-        to point
-        """
-        self.goal_set = False
-        if status == GoalStatus.SUCCEEDED:
-            rospy.loginfo("ROBOT MADE IT")
+        self.resol = data.info.resolution
+        self.origin = data.info.origin
 
     def random_walk(self):
         """
@@ -106,18 +106,73 @@ class Explorer:
         goal.target_pose.pose.orientation.w = 1
         return goal
 
+    def frontier_explore(self):
+        rospy.loginfo("CALLED FE")
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        
+        if self.grid is not None:
+            binary_grid = self.grid == -1
+            binary_grid = binary_grid.astype('uint8')*255
+            contours, _ = cv.findContours(binary_grid,1,2)
+            if len(contours) > 0:
+                c = max(contours, key = cv.contourArea)
+                M = cv.moments(c)
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
+                x_diff = cx*self.resol
+                y_diff = cy*self.resol
+                goal.target_pose.pose.position.x = self.origin.position.x + x_diff
+                goal.target_pose.pose.position.y = self.origin.position.y - y_diff
+                goal.target_pose.pose.orientation.w = 1
+                rospy.loginfo(f"{goal.target_pose.pose.position.x}")
+                rospy.loginfo(f"{goal.target_pose.pose.position.y}")
+            else:
+                goal.target_pose.pose.position.x = self.x
+                goal.target_pose.pose.position.y = self.y
+                goal.target_pose.pose.orientation.w = 1
+        else:
+            goal.target_pose.pose.position.x = self.x
+            goal.target_pose.pose.position.y = self.y
+            goal.target_pose.pose.orientation.w = 1
+
+        return goal
+
 
     def main_loop(self,event):
         """
         Main execution to calculate new point is current point as been reached
         """
-        if not self.goal_set or self.x is None or self.y is None:
-            # Get current location
-            new_goal = self.random_walk()
-            self.goal_set = True
-            self._navi_client.send_goal(new_goal, done_cb=self._complete)
-        else:
-            self._navi_client.wait_for_result()
+        if (self.x is not None) and \
+           (self.y is not None) and \
+           (self.past_x is not None) and \
+           (self.past_y is not None):
+            # Get Check if robot is stuck 
+            py = np.around(self.past_y, 4)
+            px = np.around(self.past_x, 4)
+            y = np.around(self.y, 4)
+            x = np.around(self.x, 4)
+            past_point = np.array(px, py)
+            curr_point = np.array(x, y)
+            mag = np.linalg.norm(past_point - curr_point)
+            if mag < self.threshold:
+                self.stuck_count += 1
+            else:
+                self.stuck_count = 0
+            # Pick algorithm based on it robot is stuck
+            if self.stuck_count >= self.STUCK_LIMIT:
+                new_goal = self.random_walk()
+                self.stuck_count = 0
+                rospy.loginfo("I'M STUCK")
+                self._navi_client.send_goal(new_goal)
+                self._navi_client.wait_for_result(rospy.Duration(10.0))
+                self._navi_client.cancel_all_goals()
+            else:
+                new_goal = self.frontier_explore()
+                self._navi_client.send_goal(new_goal)
+                self._navi_client.wait_for_result(rospy.Duration(3.0))
+                self._navi_client.cancel_all_goals()
 
 
 #Activate 'order_handler' node
