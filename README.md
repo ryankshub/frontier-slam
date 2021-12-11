@@ -51,8 +51,21 @@ This package requires `open_cv2` in order to run. Refer to the [OpenCv docs](htt
 
 To run the robot with frontier exploration, use the command file `roslaunch ros_navi frontier_exp.launch`. 
 
+### Demo ###
+
+![Frontier Demo](media/frontier.gif)
+
 To run only the gazebo and rviz to use the 2D Nav Goal to guide the robot, use the command `roslaunch ros_navi slam_stack.launch`.
 
+### Demo ###
+
+![Slam Stack](media/slam_stack.gif)
+
 To run only the navigation stack and use the 2D Nav Goal to gudie the robot, use the command `roslaunch ros_navi nav_stack.launch`
+
+### Demo ###
+
+![Nav_Stack Demo](media/nav_stack.gif)
+
 
 

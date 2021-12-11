@@ -124,7 +124,7 @@ class Explorer:
                 x_diff = cx*self.resol
                 y_diff = cy*self.resol
                 goal.target_pose.pose.position.x = self.origin.position.x + x_diff
-                goal.target_pose.pose.position.y = self.origin.position.y - y_diff
+                goal.target_pose.pose.position.y = self.origin.position.y + y_diff
                 goal.target_pose.pose.orientation.w = 1
                 rospy.loginfo(f"{goal.target_pose.pose.position.x}")
                 rospy.loginfo(f"{goal.target_pose.pose.position.y}")
