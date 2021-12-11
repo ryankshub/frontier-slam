@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+#File for Explorer Node
+#RKS
+
+# Project imports
+
+# Python imports
+
+# 3rd-party imports
+import actionlib
+from actionlib_msgs.msg import GoalStatus
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from nav_msgs.msg import Odometry
+import rospy
+import numpy as np
+
+
+class Explorer:
+    """
+    ROS Node responsible for navigating the robot inorder to explore a home
+
+    SUBSCRIBER
+
+    ACTION CLIENT:
+        navi MoveBaseAction -
+            Send a goal point for robot to traverse toward.
+    """
+    def __init__(self):
+        """
+        Constructor for ROS Node
+        """
+        rospy.init_node('explorer')
+        rospy.Subscriber('/odom', Odometry, self._handle_odom)
+        self._navi_client= actionlib.SimpleActionClient("move_base", MoveBaseAction)
+        self._navi_client.wait_for_server()
+        self.goal_set = False
+        self.x = None #We start with no clue where the robot is
+        self.y = None #We start with no clue where the robot is
+
+        # Set up run rate and main function
+        self._RATE = 1 # in Hz
+        self._time_delta = 1./self._RATE
+        rospy.Timer(rospy.Duration(self._time_delta), self.main_loop)
+        rospy.spin()
+
+    def _handle_odom(self, data):
+        """
+        Handles data from the Odometry topic
+        to update the current idea of the robot's 
+        position
+        """
+        self.x = data.pose.pose.position.x
+        self.y = data.pose.pose.position.y
+
+    def _complete(self, status, result):
+        """
+        Called when goal is finished, 
+        Check if robot could successfully make it 
+        to point
+        """
+        self.goal_set = False
+        if status == GoalStatus.SUCCEEDED:
+            rospy.loginfo("ROBOT MADE IT")
+
+    def random_walk(self):
+        """
+        Have the robot determine it's next point with
+        random walk
+        """
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = "map"
+        goal.target_pose.header.stamp = rospy.Time.now()
+        
+        scale = np.random.randint(low=-2, high=2)
+        y_diff = scale*np.random.rand()
+        x_diff = scale*np.random.rand()
+        goal.target_pose.pose.position.x = self.x + x_diff
+        goal.target_pose.pose.position.y = self.y + y_diff
+        goal.target_pose.pose.orientation.w = 1
+        return goal
+
+
+    def main_loop(self,event):
+        """
+        Main execution to calculate new point is current point as been reached
+        """
+        if not self.goal_set:
+            # Get current location
+            new_goal = self.random_walk()
+            self.goal_set = True
+            self._navi_client.send_goal(new_goal, done_cb=self._complete)
+        else:
+            self._navi_client.wait_for_result()
+
+
+#Activate 'order_handler' node
+def main():
+    """
+    Activation function for explorer
+    """
+    explorer = Explorer()
+
+# Main Execution loop
+if __name__ == "__main__":
+    try:
+        main()
+    #If something kills this node, have it die
+    except rospy.ROSInterruptException:
+        pass
+            
+        
+
+

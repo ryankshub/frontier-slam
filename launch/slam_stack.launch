@@ -1,0 +1,13 @@
+<launch>
+  <arg name="map_file" default="$(find ros_navi)/map_gazebo.yaml"/>
+  <!--robot description-->
+  <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch"/>
+  <!--costmap-->
+  <include file="$(find turtlebot3_navigation)/launch/move_base.launch"/>
+  <!--TurtleBot3 Gazebo-->
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch"/>
+  <!--Slam-toolbox-->
+  <include file="$(find slam_toolbox)/online_async.launch"/> 
+  <!--RVIZ-->
+  <node pkg="rviz" type="rviz" name="rviz" required="true" args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
+</launch>
